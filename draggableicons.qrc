@@ -1,0 +1,7 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="">
+   <file>images/FixedSupport.svg</file>
+   <file>images/LinSupport.svg</file>
+   <file>images/VarSupport.svg</file>
+</qresource>
+</RCC>
