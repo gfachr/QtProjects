@@ -1,11 +1,13 @@
 #include "coordinatesystem.h"
 
 CoordinateSystem::CoordinateSystem(QWidget *parent)
-    : QFrame(parent)
+    : QFrame(parent), iconWidth(100), iconHight(100), cellSize(20), isPanning(false), offset(0, 0), lastMousePos(0, 0)
 {
     setMinimumSize(200, 200);
     setFrameStyle(QFrame::Sunken | QFrame::StyledPanel);
     setAcceptDrops(true);
+    setCursor(Qt::ArrowCursor);
+
 
 }
 
@@ -56,6 +58,8 @@ void CoordinateSystem::dropEvent(QDropEvent *event)
         simElement->setXStart(event->position().toPoint().rx() - offset.rx());
         simElement->setYStart(event->position().toPoint().ry() - offset.ry());
 
+        simElements.push_back(simElement);
+
         if (event->source() != this) {
             emit this->simElementAdded(simElement);
         }
@@ -75,6 +79,12 @@ void CoordinateSystem::dropEvent(QDropEvent *event)
 //! [1]
 void CoordinateSystem::mousePressEvent(QMouseEvent *event)
 {
+    if (event->button() == Qt::MiddleButton) {
+        isPanning = true;
+        lastMousePos = event->pos();
+        setCursor(Qt::ClosedHandCursor);
+    }
+
     QLabel *child = static_cast<QLabel*>(childAt(event->position().toPoint()));
     if (!child)
         return;
@@ -112,4 +122,90 @@ void CoordinateSystem::mousePressEvent(QMouseEvent *event)
         child->show();
         child->setPixmap(pixmap);
     }
+}
+
+void CoordinateSystem::mouseMoveEvent(QMouseEvent *event)
+{
+    if (isPanning) {
+        QPoint delta = event->pos() - lastMousePos;
+        offset += delta;
+        lastMousePos = event->pos();
+
+        for(Joint* j : simElements) {
+            j->setXStart(j->getXStart() + delta.rx());
+            j->setYStart(j->getYStart() + delta.ry());
+            j->move(j->pos() + delta);
+        }
+
+        update();
+    }
+}
+
+void CoordinateSystem::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::MiddleButton) {
+        isPanning = false;
+        setCursor(Qt::ArrowCursor);
+    }
+}
+
+void CoordinateSystem::wheelEvent(QWheelEvent  * event) {
+    int delta = event->angleDelta().y();
+    int zoomStep = 2;
+
+    if (delta > 0 && cellSize < 100) {
+        cellSize += zoomStep;
+        iconWidth += zoomStep;
+        iconHight += zoomStep;
+    } else if (delta < 0 && cellSize > 5) {
+        cellSize -= zoomStep;
+        iconWidth -= zoomStep;
+        iconHight -= zoomStep;
+    }
+
+    for(Joint* j : simElements) {
+
+        j->resize(iconWidth, iconHight);
+    }
+
+    update();
+}
+void CoordinateSystem::paintEvent(QPaintEvent *event) {
+    Q_UNUSED(event);
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    QPen pen(QColor(200, 200, 200));
+
+    painter.fillRect(rect(), QColor(255, 255, 255));
+
+    pen.setWidth(1);
+    painter.setPen(pen);
+
+
+    int startX = offset.x() % cellSize;
+    int startY = offset.y() % cellSize;
+
+    // Draw vertical grid lines
+    for (int x = startX; x < width(); x += cellSize) {
+        painter.drawLine(x, 0, x, height());
+    }
+
+    // Draw horizontal grid lines
+    for (int y = startY; y < height(); y += cellSize) {
+        painter.drawLine(0, y, width(), y);
+    }
+}
+
+//getter and setter
+
+int CoordinateSystem::getCellSize() const
+{
+    return cellSize;
+}
+
+void CoordinateSystem::setCellSize(int newCellSize)
+{
+    cellSize = newCellSize;
 }
