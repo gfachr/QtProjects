@@ -1,0 +1,1 @@
+dropEvent creates new simElement when replaced in coordinate system!

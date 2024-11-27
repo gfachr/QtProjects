@@ -1,12 +1,12 @@
 #include "joint.h"
 
 Joint::Joint(QWidget *parent)
-    : QLabel(parent), xStart(0), yStart(0), xSim(0), ySim(0), vxStart(0), vyStart(0), vxSim(0), vySim(0),
+    : QLabel(parent), uuid(QUuid::createUuid()), dragDropOffset(QPoint(0, 0)), xStart(0), yStart(0), xSim(0), ySim(0), vxStart(0), vyStart(0), vxSim(0), vySim(0),
     phiSim(0), omegaSim(0), xForce(0), yForce(0), isLocked(false), isLimited(false),
     frictionForceCoefficient(0), linStart(0), linEnd(0), inclinationAngle(0), etaForce(0), zetaSim(0) {}
 
 Joint::Joint(QWidget *parent, JointTypes jointType)
-    : QLabel(parent), xStart(0), yStart(0), xSim(0), ySim(0), vxStart(0), vyStart(0), vxSim(0), vySim(0),
+    : QLabel(parent), uuid(QUuid::createUuid()), dragDropOffset(QPoint(0, 0)), xStart(0), yStart(0), xSim(0), ySim(0), vxStart(0), vyStart(0), vxSim(0), vySim(0),
     phiSim(0), omegaSim(0), xForce(0), yForce(0), isLocked(false), isLimited(false),
     frictionForceCoefficient(0), linStart(0), linEnd(0), inclinationAngle(0), etaForce(0), zetaSim(0)
 {
@@ -310,4 +310,24 @@ JointTypes Joint::getJointType() const
 void Joint::setJointType(JointTypes newJointType)
 {
     jointType = newJointType;
+}
+
+QUuid Joint::getUuid() const
+{
+    return uuid;
+}
+
+void Joint::setUuid(const QUuid &newUuid)
+{
+    uuid = newUuid;
+}
+
+QPoint Joint::getDragDropOffset() const
+{
+    return dragDropOffset;
+}
+
+void Joint::setDragDropOffset(QPoint newDragDropOffset)
+{
+    dragDropOffset = newDragDropOffset;
 }

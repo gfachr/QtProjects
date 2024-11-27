@@ -24,13 +24,15 @@ LogWidget::LogWidget(QWidget *parent)
 void LogWidget::appendElementAddInfo(Joint *simElement) {
     double x = simElement->getXStart();
     double y = simElement->getYStart();
-    QString msg = QString("New Simulation component place at x =%1 and y =%2").arg(x).arg(y);
+    QString simElementId = simElement->getUuid().toString(QUuid::WithBraces);
+    QString msg = QString("New Simulation component with Id=%1 place at x =%2 and y =%3").arg(simElementId).arg(x).arg(y);
     plainTextEdit->appendPlainText(msg);
 }
 
 void LogWidget::appendElementMovedInfo(Joint *simElement) {
     double x = simElement->getXStart();
     double y = simElement->getYStart();
-    QString msg = QString("Simulation component moved to x =%1 and y =%2").arg(x).arg(y);
+    QString simElementId = simElement->getUuid().toString(QUuid::WithBraces);
+    QString msg = QString("Simulation component with Id=%1 moved to x =%2 and y =%3").arg(simElementId).arg(x).arg(y);
     plainTextEdit->appendPlainText(msg);
 }

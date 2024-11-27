@@ -57,41 +57,43 @@ void DragWidget::dragMoveEvent(QDragMoveEvent *event)
 //! [1]
 void DragWidget::mousePressEvent(QMouseEvent *event)
 {
-    QLabel *child = static_cast<QLabel*>(childAt(event->position().toPoint()));
-    if (!child)
-        return;
+    if (event->button() == Qt::LeftButton) {
+        QLabel *child = static_cast<QLabel*>(childAt(event->position().toPoint()));
+        if (!child)
+            return;
 
-    QPixmap pixmap = child->pixmap();
+        QPixmap pixmap = child->pixmap();
 
-    QByteArray itemData;
-    QDataStream dataStream(&itemData, QIODevice::WriteOnly);
-    dataStream << pixmap << QPoint(event->position().toPoint() - child->pos());
-    //! [1]
+        QByteArray itemData;
+        QDataStream dataStream(&itemData, QIODevice::WriteOnly);
+        dataStream << pixmap << QPoint(event->position().toPoint() - child->pos());
+        //! [1]
 
-    //! [2]
-    QMimeData *mimeData = new QMimeData;
-    mimeData->setData("application/x-dnditemdata", itemData);
-    //! [2]
+        //! [2]
+        QMimeData *mimeData = new QMimeData;
+        mimeData->setData("application/x-dnditemdata", itemData);
+        //! [2]
 
-    //! [3]
-    QDrag *drag = new QDrag(this);
-    drag->setMimeData(mimeData);
-    drag->setPixmap(pixmap);
-    drag->setHotSpot(event->position().toPoint() - child->pos());
-    //! [3]
+        //! [3]
+        QDrag *drag = new QDrag(this);
+        drag->setMimeData(mimeData);
+        drag->setPixmap(pixmap);
+        drag->setHotSpot(event->position().toPoint() - child->pos());
+        //! [3]
 
-    QPixmap tempPixmap = pixmap;
-    QPainter painter;
-    painter.begin(&tempPixmap);
-    painter.fillRect(pixmap.rect(), QColor(127, 127, 127, 127));
-    painter.end();
+        QPixmap tempPixmap = pixmap;
+        QPainter painter;
+        painter.begin(&tempPixmap);
+        painter.fillRect(pixmap.rect(), QColor(127, 127, 127, 127));
+        painter.end();
 
-    child->setPixmap(tempPixmap);
+        child->setPixmap(tempPixmap);
 
-    if (drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction) == Qt::MoveAction) {
-        child->close();
-    } else {
-        child->show();
-        child->setPixmap(pixmap);
+        if (drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction) == Qt::MoveAction) {
+            child->close();
+        } else {
+            child->show();
+            child->setPixmap(pixmap);
+        }
     }
 }

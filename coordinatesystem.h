@@ -14,11 +14,19 @@ class CoordinateSystem : public QFrame
 
     Q_OBJECT
 
+    enum Operation { NoTransformation, Translate, Rotate, Scale };
+
 public:
     explicit CoordinateSystem(QWidget *parent = nullptr);
 
     int getCellSize() const;
     void setCellSize(int newCellSize);
+
+    int getCellStartSize() const;
+    void setCellStartSize(int newCellStartSize);
+
+    void setOperations(const QList<Operation> &operations);
+    void setShape(const QPainterPath &shape);
 
 protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
@@ -33,6 +41,7 @@ protected:
 private:
     int iconWidth;
     int iconHight;
+    double scaleFactor;
     int cellSize;
     bool isPanning;
     QPoint offset;

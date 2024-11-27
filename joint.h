@@ -2,6 +2,7 @@
 #define JOINT_H
 
 #include <QLabel>
+#include <QUuid>
 #include "jointTypes.h"
 
 class Joint : public QLabel
@@ -71,7 +72,17 @@ public:
     JointTypes getJointType() const;
     void setJointType(JointTypes newJointType);
 
+    QUuid getUuid() const;
+    void setUuid(const QUuid &newUuid);
+
+    QPoint getDragDropOffset() const;
+    void setDragDropOffset(QPoint newDragDropOffset);
+
 private:
+
+    QUuid uuid;
+    QPoint dragDropOffset;
+
     double xStart;
     double yStart;
     double xSim;

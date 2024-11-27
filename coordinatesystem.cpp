@@ -1,19 +1,24 @@
 #include "coordinatesystem.h"
 
 CoordinateSystem::CoordinateSystem(QWidget *parent)
-    : QFrame(parent), iconWidth(100), iconHight(100), cellSize(20), isPanning(false), offset(0, 0), lastMousePos(0, 0)
+    : QFrame(parent), iconWidth(100), iconHight(100), scaleFactor(1), cellSize(20), offset(0, 0), lastMousePos(0, 0)
 {
     setMinimumSize(200, 200);
     setFrameStyle(QFrame::Sunken | QFrame::StyledPanel);
     setAcceptDrops(true);
     setCursor(Qt::ArrowCursor);
-
-
 }
 
 void CoordinateSystem::dragEnterEvent(QDragEnterEvent *event)
 {
     if (event->mimeData()->hasFormat("application/x-dnditemdata")) {
+        if (event->source() == this) {
+            event->setDropAction(Qt::MoveAction);
+            event->accept();
+        } else {
+            event->acceptProposedAction();
+        }
+    } else if (event->mimeData()->hasFormat("application/x-object-pointer")) {
         if (event->source() == this) {
             event->setDropAction(Qt::MoveAction);
             event->accept();
@@ -32,8 +37,15 @@ void CoordinateSystem::dragMoveEvent(QDragMoveEvent *event)
             event->setDropAction(Qt::MoveAction);
             event->accept();
         } else {
-            event->acceptProposedAction();
+            if (event->source() == this) {
+                event->setDropAction(Qt::MoveAction);
+                event->accept();
+            } else {
+                event->acceptProposedAction();
+            }
         }
+    } else if (event->mimeData()->hasFormat("application/x-object-pointer")) {
+        event->acceptProposedAction();
     } else {
         event->ignore();
     }
@@ -42,35 +54,42 @@ void CoordinateSystem::dragMoveEvent(QDragMoveEvent *event)
 void CoordinateSystem::dropEvent(QDropEvent *event)
 {
     if (event->mimeData()->hasFormat("application/x-dnditemdata")) {
-        QByteArray itemData = event->mimeData()->data("application/x-dnditemdata");
-        QDataStream dataStream(&itemData, QIODevice::ReadOnly);
+         if (event->source() != this) {
+            QByteArray itemData = event->mimeData()->data("application/x-dnditemdata");
+            QDataStream dataStream(&itemData, QIODevice::ReadOnly);
 
-        QPixmap pixmap;
-        QPoint offset;
-        JointTypes jointType;
-        dataStream >> pixmap >> offset >> jointType;
+            QPixmap pixmap;
+            QPoint offset;
+            JointTypes jointType;
+            dataStream >> pixmap >> offset >> jointType;
 
-        Joint *simElement = new Joint(this, jointType);
-        simElement->setPixmap(pixmap);
-        simElement->move(event->position().toPoint() - offset);
-        simElement->show();
-        simElement->setAttribute(Qt::WA_DeleteOnClose);
-        simElement->setXStart(event->position().toPoint().rx() - offset.rx());
-        simElement->setYStart(event->position().toPoint().ry() - offset.ry());
+            Joint *simElement = new Joint(this, jointType);
+            simElement->setPixmap(pixmap);
+            simElement->move(event->position().toPoint() - offset);
+            simElement->show();
+            simElement->setAttribute(Qt::WA_DeleteOnClose, false);
+            simElement->setXStart(event->position().toPoint().rx() - offset.rx());
+            simElement->setYStart(event->position().toPoint().ry() - offset.ry());
 
-        simElements.push_back(simElement);
-
-        if (event->source() != this) {
+            simElements.push_back(simElement);
             emit this->simElementAdded(simElement);
         }
 
-        if (event->source() == this) {
-            event->setDropAction(Qt::MoveAction);
-            event->accept();
-            emit this->simElementMoved(simElement);
-        } else {
-            event->acceptProposedAction();
+    } else if (event->mimeData()->hasFormat("application/x-object-pointer")) {
+
+        QByteArray pointerData = event->mimeData()->data("application/x-object-pointer");
+        Joint *joint = reinterpret_cast<Joint *>(pointerData.toULongLong());
+
+        if (joint) {
+            joint->setParent(this);
+            joint->move(event->position().toPoint() - joint->getDragDropOffset());
+            joint->setXStart(event->position().toPoint().rx() - joint->getDragDropOffset().rx());
+            joint->setYStart(event->position().toPoint().ry() - joint->getDragDropOffset().ry());
+            joint->show();
+            emit this->simElementMoved(joint);
         }
+        event->acceptProposedAction();
+
     } else {
         event->ignore();
     }
@@ -79,48 +98,27 @@ void CoordinateSystem::dropEvent(QDropEvent *event)
 //! [1]
 void CoordinateSystem::mousePressEvent(QMouseEvent *event)
 {
+    //handle mouse events
     if (event->button() == Qt::MiddleButton) {
         isPanning = true;
         lastMousePos = event->pos();
         setCursor(Qt::ClosedHandCursor);
     }
+    else if (event->button() == Qt::LeftButton) {
+        Joint *child = static_cast<Joint*>(childAt(event->position().toPoint()));
+        if (!child) {
+            return;
+        }
+        child->setDragDropOffset(QPoint(event->position().toPoint() - child->pos()));
+        QDrag *drag = new QDrag(this);
+        QMimeData *mimeData = new QMimeData;
 
-    QLabel *child = static_cast<QLabel*>(childAt(event->position().toPoint()));
-    if (!child)
-        return;
+        mimeData->setData("application/x-object-pointer", QByteArray::number(reinterpret_cast<quintptr>(child)));
 
-    QPixmap pixmap = child->pixmap();
-
-    QByteArray itemData;
-    QDataStream dataStream(&itemData, QIODevice::WriteOnly);
-    dataStream << pixmap << QPoint(event->position().toPoint() - child->pos());
-    //! [1]
-
-    //! [2]
-    QMimeData *mimeData = new QMimeData;
-    mimeData->setData("application/x-dnditemdata", itemData);
-    //! [2]
-
-    //! [3]
-    QDrag *drag = new QDrag(this);
-    drag->setMimeData(mimeData);
-    drag->setPixmap(pixmap);
-    drag->setHotSpot(event->position().toPoint() - child->pos());
-    //! [3]
-
-    QPixmap tempPixmap = pixmap;
-    QPainter painter;
-    painter.begin(&tempPixmap);
-    painter.fillRect(pixmap.rect(), QColor(127, 127, 127, 127));
-    painter.end();
-
-    child->setPixmap(tempPixmap);
-
-    if (drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction) == Qt::MoveAction) {
-        child->close();
-    } else {
-        child->show();
-        child->setPixmap(pixmap);
+        drag->setMimeData(mimeData);
+        drag->setPixmap(child->pixmap());
+        drag->setHotSpot(event->position().toPoint() - child->pos());
+        drag->exec(Qt::MoveAction);
     }
 }
 
@@ -151,21 +149,18 @@ void CoordinateSystem::mouseReleaseEvent(QMouseEvent *event)
 
 void CoordinateSystem::wheelEvent(QWheelEvent  * event) {
     int delta = event->angleDelta().y();
-    int zoomStep = 2;
+    double zoomFctor = 1.05;
 
-    if (delta > 0 && cellSize < 100) {
-        cellSize += zoomStep;
-        iconWidth += zoomStep;
-        iconHight += zoomStep;
-    } else if (delta < 0 && cellSize > 5) {
-        cellSize -= zoomStep;
-        iconWidth -= zoomStep;
-        iconHight -= zoomStep;
+    if (delta > 0) {
+        scaleFactor *= zoomFctor;
+    } else if (delta < 0) {
+        scaleFactor /= zoomFctor;
     }
 
     for(Joint* j : simElements) {
-
-        j->resize(iconWidth, iconHight);
+        QPoint pos = j->pos();
+        j->resize(iconWidth*scaleFactor, iconHight*scaleFactor);
+        j->move(pos.rx(), pos.ry());
     }
 
     update();
@@ -174,28 +169,51 @@ void CoordinateSystem::paintEvent(QPaintEvent *event) {
     Q_UNUSED(event);
 
     QPainter painter(this);
+    QTransform transform = painter.transform();
     painter.setRenderHint(QPainter::Antialiasing);
+    //painter.fillRect(event->rect(), QBrush(Qt::white));
+    QRect rect(0, 0, width(), height());
+    painter.fillRect(rect, QBrush(Qt::white));
+
 
     QPen pen(QColor(200, 200, 200));
-
-    painter.fillRect(rect(), QColor(255, 255, 255));
-
     pen.setWidth(1);
     painter.setPen(pen);
 
-
-    int startX = offset.x() % cellSize;
-    int startY = offset.y() % cellSize;
+    transform.translate((width()/2), (height()/2));
+    transform.scale(scaleFactor, scaleFactor);
+    painter.setWorldTransform(transform);
 
     // Draw vertical grid lines
-    for (int x = startX; x < width(); x += cellSize) {
-        painter.drawLine(x, 0, x, height());
+    for (int x = cellSize/2; x < (1/scaleFactor)*width()/2; x += cellSize) {
+        painter.drawLine(x, -(1/scaleFactor)*height()/2, x, (1/scaleFactor)*height()/2);
+    }
+
+    for (int x = -cellSize/2; x > -(1/scaleFactor)*width()/2; x -= cellSize) {
+       painter.drawLine(x, -(1/scaleFactor)*height()/2, x, (1/scaleFactor)*height()/2);
     }
 
     // Draw horizontal grid lines
-    for (int y = startY; y < height(); y += cellSize) {
-        painter.drawLine(0, y, width(), y);
+    for (int y = cellSize/2; y < (1/scaleFactor)*height()/2; y += cellSize) {
+        painter.drawLine(-(1/scaleFactor)*width()/2, y, (1/scaleFactor)*width()/2, y);
     }
+
+    for (int y = -cellSize/2; y > -(1/scaleFactor)*height()/2; y -= cellSize) {
+       painter.drawLine(-(1/scaleFactor)*width()/2, y, (1/scaleFactor)*width()/2, y);
+    }
+
+    pen.setColor(QColor(0, 0, 0));
+    painter.setPen(pen);
+    pen.setWidth(2);
+    painter.drawLine(0, -(1/scaleFactor)*height()/2, 0, (1/scaleFactor)*height()/2);
+    painter.drawLine(-(1/scaleFactor)*width()/2, 0, (1/scaleFactor)*width()/2, 0);
+
+    const QPoint origin = QPoint(0, 0);
+    QPixmap pixmap = QPixmap(":/images/FixedSupport.svg").scaled(100, 100, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    painter.drawPixmap(origin, pixmap);
+
+
+
 }
 
 //getter and setter
